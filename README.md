@@ -1,0 +1,5 @@
+# Wikipedia LLM Editor
+
+A web application that helps improve Wikipedia articles by generating suggested edits using OpenAI's GPT-5 models. Simply paste a Wikipedia URL or search for an article title, and the tool will fetch the page's wikitext and send it to a pre-configured OpenAI prompt via the Responses API. The application provides a clean interface to compare the original content with AI-generated suggestions for improvements, corrections, or enhancements.
+
+Built with vanilla HTML, CSS, and JavaScript, this tool features real-time cost calculations for API usage, support for random article discovery, and easy copy-to-clipboard functionality for both original and suggested content. The application includes development and production modes with different prompt configurations, making it suitable for both testing and live Wikipedia editing workflows.
