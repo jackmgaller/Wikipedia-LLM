@@ -13,10 +13,6 @@
 
   <header class="glass nav">
     <div class="brand">
-      <svg aria-hidden="true" viewBox="0 0 24 24" class="logo">
-        <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.1"></circle>
-        <path d="M4 12h16M12 4v16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
       <span>Wiki Edit — GPT-5 Agent</span>
       <span id="devIndicator" class="dev-badge" style="display: none;">DEV</span>
     </div>
@@ -66,7 +62,7 @@
     <section class="glass panel">
       <h2>Suggested Edit (from GPT-5)</h2>
       <div id="llmStatus" class="status">No output yet.</div>
-      <article id="llmOutput" class="output"></article>
+      <pre id="llmOutput" class="codeblock"></pre>
       <div class="toolbar">
         <button id="copyLLM" class="btn ghost">Copy Output</button>
         <details id="rawWrap">

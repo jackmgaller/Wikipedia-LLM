@@ -3,7 +3,8 @@
     "allow": [
       "WebFetch(domain:platform.openai.com)",
       "WebFetch(domain:learn.microsoft.com)",
-      "WebFetch(domain:docs.litellm.ai)"
+      "WebFetch(domain:docs.litellm.ai)",
+      "WebFetch(domain:openai.com)"
     ],
     "deny": []
   }

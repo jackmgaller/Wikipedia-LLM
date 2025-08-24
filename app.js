@@ -237,8 +237,10 @@ async function runPrompt(){
 
     const data = await res.json();
     const text = extractTextFromResponse(data);
+    const cost = calculateCost(data);
+    
     UI.llmOutput.textContent = text || '(No text output)';
-    UI.llmStatus.textContent = 'Done.';
+    UI.llmStatus.textContent = cost ? `Done. Cost: ${cost}` : 'Done.';
     UI.rawJson.textContent = JSON.stringify(data, null, 2);
   } catch (e) {
     UI.llmStatus.textContent = 'Error from OpenAI.';
@@ -279,4 +281,67 @@ async function safeJson(res){
 
 function escapeHtml(str=''){
   return str.replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]));
+}
+
+/* --- Pricing & cost calc for GPT-5 family --- */
+/* Rates are USD per 1M tokens (official OpenAI pricing) */
+const PRICING = {
+  'gpt-5':      { input: 1.25,  cached: 0.125, output: 10.00 },
+  'gpt-5-mini': { input: 0.25,  cached: 0.025, output:  2.00 },
+  'gpt-5-nano': { input: 0.05,  cached: 0.005, output:  0.40 },
+  // alias for chat-latest, same as gpt-5
+  'gpt-5-chat': { input: 1.25,  cached: 0.125, output: 10.00 },
+};
+
+function detectModelFamily(resp){
+  const m = (resp?.model || '').toLowerCase();
+  if (m.includes('gpt-5-mini')) return 'gpt-5-mini';
+  if (m.includes('gpt-5-nano')) return 'gpt-5-nano';
+  if (m.includes('gpt-5-chat')) return 'gpt-5-chat';
+  if (m.includes('gpt-5')) return 'gpt-5';
+  // Fallback by environment if model string is missing:
+  return IS_DEV ? 'gpt-5-mini' : 'gpt-5';
+}
+
+/**
+ * Calculates total $ cost using:
+ *   non-cached input @ input rate
+ * + cached input @ cached rate
+ * + output @ output rate
+ * Works with Responses API (usage.input_tokens / output_tokens) and
+ * legacy Chat Completions-style (prompt_tokens / completion_tokens).
+ */
+function calculateCost(resp){
+  try {
+    const u = resp?.usage || resp?.choices?.[0]?.usage || {};
+    const inputTokens =
+      (typeof u.input_tokens === 'number') ? u.input_tokens :
+      (typeof u.prompt_tokens === 'number') ? u.prompt_tokens : 0;
+
+    const cachedTokens =
+      (typeof u?.input_tokens_details?.cached_tokens === 'number') ? u.input_tokens_details.cached_tokens :
+      (typeof u?.prompt_tokens_details?.cached_tokens === 'number') ? u.prompt_tokens_details.cached_tokens : 0;
+
+    const outputTokens =
+      (typeof u.output_tokens === 'number') ? u.output_tokens :
+      (typeof u.completion_tokens === 'number') ? u.completion_tokens : 0;
+
+    const family = detectModelFamily(resp);
+    const rate = PRICING[family];
+    if (!rate) return '';
+
+    const nonCached = Math.max(0, inputTokens - cachedTokens);
+
+    const costInput  = ((nonCached * rate.input)  / 1_000_000) + ((cachedTokens * rate.cached) / 1_000_000);
+    const costOutput =  (outputTokens * rate.output) / 1_000_000;
+    const total = costInput + costOutput;
+
+    const fmt = v => '$' + v.toFixed(6);
+    // In dev, include a short breakdown & token counts; in prod just the total.
+    return IS_DEV
+      ? `${fmt(total)} (input ${fmt(costInput)} + output ${fmt(costOutput)}) • ${family} • in:${inputTokens} (cached:${cachedTokens}) out:${outputTokens}`
+      : fmt(total);
+  } catch {
+    return '';
+  }
 }
