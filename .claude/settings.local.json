@@ -4,7 +4,9 @@
       "WebFetch(domain:platform.openai.com)",
       "WebFetch(domain:learn.microsoft.com)",
       "WebFetch(domain:docs.litellm.ai)",
-      "WebFetch(domain:openai.com)"
+      "WebFetch(domain:openai.com)",
+      "Bash(move:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
