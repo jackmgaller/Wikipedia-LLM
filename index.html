@@ -41,12 +41,12 @@
       <div class="actions">
         <button id="runBtn" class="btn primary">Generate Suggested Edit</button>
       </div>
-
-      <div class="subtle">We’ll send the page’s Wikitext (the “Edit source”) to your saved Prompt via <code>POST /v1/responses</code>. (Prompt ID &amp; version are hard-coded.)</div>
+      
+      
 
       <div class="card">
         <div class="card-head">
-          <strong>Page</strong>
+          <strong id="articleTitle" class="article-title">Page</strong>
           <div class="grow"></div>
           <a id="pageLink" href="#" target="_blank" rel="noopener" class="link hidden">Open on Wikipedia ↗</a>
         </div>
@@ -62,6 +62,7 @@
     <section class="glass panel">
       <h2>Suggested Edit (from GPT-5)</h2>
       <div id="llmStatus" class="status">No output yet.</div>
+      <div id="toolIndicator" class="status tool hidden">Tool called!</div>
       <pre id="llmOutput" class="codeblock"></pre>
       <div class="toolbar">
         <button id="copyLLM" class="btn ghost">Copy Output</button>
@@ -77,6 +78,13 @@
   <template id="spinnerTpl">
     <div class="spinner" aria-hidden="true"></div>
   </template>
+
+  <!-- Floating environment toggle -->
+  <div id="envToggle" class="env-toggle" role="group" aria-label="Environment">
+    <button id="envDev" class="seg" type="button" title="Use DEV prompt">DEV</button>
+    <button id="envProd" class="seg" type="button" title="Use PROD prompt">PROD</button>
+  </div>
+  </footer>
 
   <script defer src="app.js"></script>
 </body>

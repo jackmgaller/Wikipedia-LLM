@@ -2,8 +2,14 @@
 const $ = sel => document.querySelector(sel);
 const spinnerTpl = $('#spinnerTpl');
 
-/* Dev mode toggle */
-const IS_DEV = true;
+/* Dev/Prod environment toggle (persisted) */
+let ENV = (localStorage.getItem('env') || 'dev');
+const isDev = () => ENV === 'dev';
+function setEnv(mode){
+  ENV = (mode === 'prod') ? 'prod' : 'dev';
+  try { localStorage.setItem('env', ENV); } catch {}
+  updateEnvUI();
+}
 
 /* Hard-coded saved Prompt info */
 const PROMPT = {
@@ -28,10 +34,15 @@ const UI = {
   wikitext: $('#wikitext'),
   copyWiki: $('#copyWiki'),
   llmStatus: $('#llmStatus'),
+  toolIndicator: $('#toolIndicator'),
   llmOutput: $('#llmOutput'),
   copyLLM: $('#copyLLM'),
   rawJson: $('#rawJson'),
   rawWrap: $('#rawWrap'),
+  articleTitle: $('#articleTitle'),
+  envToggle: $('#envToggle'),
+  envDev: $('#envDev'),
+  envProd: $('#envProd'),
 };
 
 const STATE = {
@@ -40,13 +51,47 @@ const STATE = {
   wikitext: null,
 };
 
-/* --- show dev indicator --- */
-if (IS_DEV) {
-  document.addEventListener('DOMContentLoaded', () => {
-    const devIndicator = document.getElementById('devIndicator');
-    if (devIndicator) devIndicator.style.display = 'inline';
-  });
+/* --- URL helpers (query param for shareable links) --- */
+function setQueryParam(key, value, mode = 'replace'){
+  try {
+    const url = new URL(window.location.href);
+    if (value == null || value === '') url.searchParams.delete(key);
+    else url.searchParams.set(key, value);
+    const newUrl = url.pathname + url.search + url.hash;
+    if (mode === 'replace') history.replaceState(null, '', newUrl);
+    else history.pushState(null, '', newUrl);
+  } catch { /* ignore */ }
 }
+
+function getInitialTitleFromQuery(){
+  try {
+    const url = new URL(window.location.href);
+    return (
+      url.searchParams.get('title') ||
+      url.searchParams.get('q') ||
+      url.searchParams.get('article') ||
+      ''
+    );
+  } catch { return ''; }
+}
+
+/* --- dev indicator + toggle wiring --- */
+function updateEnvUI(){
+  const devIndicator = document.getElementById('devIndicator');
+  if (devIndicator) devIndicator.style.display = isDev() ? 'inline' : 'none';
+  if (UI.envDev && UI.envProd) {
+    UI.envDev.classList.toggle('active', isDev());
+    UI.envProd.classList.toggle('active', !isDev());
+    UI.envToggle?.setAttribute('aria-label', `Environment: ${isDev() ? 'DEV' : 'PROD'}`);
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  updateEnvUI();
+  if (UI.envDev && UI.envProd) {
+    UI.envDev.addEventListener('click', () => setEnv('dev'));
+    UI.envProd.addEventListener('click', () => setEnv('prod'));
+  }
+});
 
 /* --- persist key --- */
 (function initKey(){
@@ -58,6 +103,15 @@ if (IS_DEV) {
     setTimeout(() => (UI.saveKeyBtn.textContent = 'Save'), 900);
   });
 })();
+
+/* --- boot from URL ?title=... if present --- */
+document.addEventListener('DOMContentLoaded', () => {
+  const qTitle = getInitialTitleFromQuery();
+  if (qTitle) {
+    UI.wikiInput.value = qTitle;
+    loadByInput();
+  }
+});
 
 /* --- events --- */
 UI.loadBtn.addEventListener('click', () => loadByInput());
@@ -184,18 +238,25 @@ async function loadByInput(){
       UI.wikitext.textContent = finalResult.wikitext || '(Empty wikitext)';
       setStatus(UI.pageStatus, `<span style="color:var(--ok)">Loaded (via redirect):</span> ${escapeHtml(finalResult.title)}`);
       UI.pageLink.href = finalResult.url;
+      if (UI.articleTitle) { UI.articleTitle.textContent = finalResult.title; }
+      setQueryParam('title', finalResult.title, 'replace');
     } else {
       STATE.title = result.title; 
       STATE.url = result.url; 
       STATE.wikitext = result.wikitext;
       UI.wikitext.textContent = result.wikitext || '(Empty wikitext)';
       setStatus(UI.pageStatus, `<span style="color:var(--ok)">Loaded:</span> ${escapeHtml(result.title)}`);
+      setStatus(UI.pageStatus, `<span style=\"color:var(--ok)\">Loaded.</span>`);
       UI.pageLink.href = result.url;
+      if (UI.articleTitle) { UI.articleTitle.textContent = result.title; }
+      setQueryParam('title', result.title, 'replace');
     }
     UI.pageLink.classList.remove('hidden');
   } catch (e) {
     setStatus(UI.pageStatus, `<span style="color:var(--err)">Error:</span> ${escapeHtml(e.message)}`);
     STATE.title = STATE.url = STATE.wikitext = null;
+    if (UI.articleTitle) { UI.articleTitle.textContent = 'Page'; }
+    setQueryParam('title', '', 'replace');
   } finally {
     setBusy(UI.loadBtn, false);
   }
@@ -209,9 +270,10 @@ async function runPrompt(){
 
   const body = {
     prompt: {
-      ...(IS_DEV ? DEV_PROMPT : PROMPT)
+      ...(isDev() ? DEV_PROMPT : PROMPT)
     },
-    input: STATE.wikitext
+    input: STATE.wikitext,
+    stream: true
   };
 
   UI.llmOutput.textContent = '';
@@ -219,6 +281,7 @@ async function runPrompt(){
   UI.llmStatus.textContent = 'Calling OpenAI…';
   setBusy(UI.runBtn, true);
   UI.rawWrap.open = false;
+  if (UI.toolIndicator) { UI.toolIndicator.classList.add('hidden'); }
 
   try {
     const res = await fetch('https://api.openai.com/v1/responses', {
@@ -235,19 +298,94 @@ async function runPrompt(){
       throw new Error(err?.error?.message || `OpenAI error (${res.status})`);
     }
 
-    const data = await res.json();
-    const text = extractTextFromResponse(data);
-    const cost = calculateCost(data);
-    
-    UI.llmOutput.textContent = text || '(No text output)';
-    UI.llmStatus.textContent = cost ? `Done. Cost: ${cost}` : 'Done.';
-    UI.rawJson.textContent = JSON.stringify(data, null, 2);
+    const ctype = res.headers.get('content-type') || '';
+    if (ctype.includes('text/event-stream')) {
+      // Stream and handle tool-call events
+      await handleStreamResponse(res);
+    } else {
+      // Fallback: non-streaming JSON
+      const data = await res.json();
+      const text = extractTextFromResponse(data);
+      const cost = calculateCost(data);
+      UI.llmOutput.textContent = text || '(No text output)';
+      UI.llmStatus.textContent = cost ? `Done. Cost: ${cost}` : 'Done.';
+      UI.rawJson.textContent = JSON.stringify(data, null, 2);
+    }
   } catch (e) {
     UI.llmStatus.textContent = 'Error from OpenAI.';
     UI.llmOutput.textContent = e.message;
   } finally {
     setBusy(UI.runBtn, false);
   }
+}
+
+async function handleStreamResponse(res){
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let finalResponse = null;
+  let sawTool = false;
+  UI.llmOutput.textContent = '';
+  UI.llmStatus.textContent = 'Generating…';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buffer.indexOf('\n\n')) !== -1) {
+      const frame = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      // Parse SSE frame
+      let event = 'message';
+      const dataLines = [];
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim());
+      }
+      const dataStr = dataLines.join('\n');
+      if (!dataStr) continue;
+      let payload;
+      try { payload = JSON.parse(dataStr); } catch { continue; }
+      // Detect tool calls by event name or payload shape
+      if (!sawTool && (/tool/i.test(event) || hasToolCall(payload))) {
+        sawTool = true;
+        if (UI.toolIndicator) UI.toolIndicator.classList.remove('hidden');
+        UI.toolIndicator && (UI.toolIndicator.textContent = 'Tool called!');
+      }
+      // Text deltas
+      if (event === 'response.output_text.delta' && typeof payload.delta === 'string') {
+        UI.llmOutput.textContent += payload.delta;
+      }
+      // Completed: final object may be present
+      if (event === 'response.completed' && payload?.response) {
+        finalResponse = payload.response;
+      }
+      // Error
+      if (event === 'response.error') {
+        throw new Error(payload?.error?.message || 'Streaming error');
+      }
+    }
+  }
+  if (finalResponse) {
+    UI.rawJson.textContent = JSON.stringify(finalResponse, null, 2);
+    const cost = calculateCost(finalResponse);
+    UI.llmStatus.textContent = cost ? `Done. Cost: ${cost}` : 'Done.';
+  } else {
+    UI.llmStatus.textContent = 'Done.';
+  }
+}
+
+function hasToolCall(obj){
+  try {
+    if (!obj || typeof obj !== 'object') return false;
+    // Check common shapes
+    if (obj.type === 'tool_call' || obj.event === 'tool_call') return true;
+    if (Array.isArray(obj?.output)) {
+      return obj.output.some(x => x?.type === 'tool_call' || Array.isArray(x?.content) && x.content.some(c => c?.type === 'tool_call'));
+    }
+    if (obj?.delta && typeof obj.delta === 'object' && (obj.delta.type === 'tool_call' || /tool/i.test(obj.delta.type || ''))) return true;
+    return false;
+  } catch { return false; }
 }
 
 /* Robustly extract text across Responses API variants */
@@ -300,7 +438,7 @@ function detectModelFamily(resp){
   if (m.includes('gpt-5-chat')) return 'gpt-5-chat';
   if (m.includes('gpt-5')) return 'gpt-5';
   // Fallback by environment if model string is missing:
-  return IS_DEV ? 'gpt-5-mini' : 'gpt-5';
+  return isDev() ? 'gpt-5-mini' : 'gpt-5';
 }
 
 /**
@@ -338,7 +476,7 @@ function calculateCost(resp){
 
     const fmt = v => '$' + v.toFixed(6);
     // In dev, include a short breakdown & token counts; in prod just the total.
-    return IS_DEV
+    return isDev()
       ? `${fmt(total)} (input ${fmt(costInput)} + output ${fmt(costOutput)}) • ${family} • in:${inputTokens} (cached:${cachedTokens}) out:${outputTokens}`
       : fmt(total);
   } catch {
