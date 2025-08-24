@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Wiki Edit — GPT-5 Agent</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://api.openai.com" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <div class="bg"></div>
+
+  <header class="glass nav">
+    <div class="brand">
+      <svg aria-hidden="true" viewBox="0 0 24 24" class="logo">
+        <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.1"></circle>
+        <path d="M4 12h16M12 4v16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <span>Wiki Edit — GPT-5 Agent</span>
+      <span id="devIndicator" class="dev-badge" style="display: none;">DEV</span>
+    </div>
+
+    <div class="keybar">
+      <label class="keylabel">
+        <span>OpenAI API Key</span>
+        <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
+      </label>
+      <button id="saveKeyBtn" class="btn">Save</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- LEFT: Input + Wikipedia -->
+    <section class="glass panel">
+      <h2>Pick a Wikipedia page</h2>
+      <div class="row">
+        <input id="wikiInput" type="text" placeholder="Paste a Wikipedia URL or type a title (e.g., Alan Turing)" />
+        <button id="loadBtn" class="btn">Load</button>
+        <button id="randomBtn" class="btn icon" title="Random article" aria-label="Random article">
+          <svg viewBox="0 0 24 24" class="dice"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.3"/><circle cx="15.5" cy="15.5" r="1.3"/><circle cx="8.5" cy="15.5" r="1.3"/><circle cx="15.5" cy="8.5" r="1.3"/></svg>
+        </button>
+      </div>
+
+      <div class="actions">
+        <button id="runBtn" class="btn primary">Generate Suggested Edit</button>
+      </div>
+
+      <div class="subtle">We’ll send the page’s Wikitext (the “Edit source”) to your saved Prompt via <code>POST /v1/responses</code>. (Prompt ID &amp; version are hard-coded.)</div>
+
+      <div class="card">
+        <div class="card-head">
+          <strong>Page</strong>
+          <div class="grow"></div>
+          <a id="pageLink" href="#" target="_blank" rel="noopener" class="link hidden">Open on Wikipedia ↗</a>
+        </div>
+        <div id="pageStatus" class="status">Load a page to see its wikitext…</div>
+        <pre id="wikitext" class="codeblock"></pre>
+        <div class="toolbar">
+          <button id="copyWiki" class="btn ghost">Copy Wikitext</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: LLM output -->
+    <section class="glass panel">
+      <h2>Suggested Edit (from GPT-5)</h2>
+      <div id="llmStatus" class="status">No output yet.</div>
+      <article id="llmOutput" class="output"></article>
+      <div class="toolbar">
+        <button id="copyLLM" class="btn ghost">Copy Output</button>
+        <details id="rawWrap">
+          <summary class="rawsum">Show raw JSON</summary>
+          <pre id="rawJson" class="codeblock small"></pre>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="glass foot">
+  <template id="spinnerTpl">
+    <div class="spinner" aria-hidden="true"></div>
+  </template>
+
+  <script defer src="app.js"></script>
+</body>
+</html>
