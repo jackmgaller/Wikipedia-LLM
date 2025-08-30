@@ -2,7 +2,8 @@
 // Wires UI to services. Keep HTML IDs identical to your original page.
 
 import { $, setBusy, setStatus, setQueryParam, getInitialTitleFromQuery, escapeHtml, copyText, showToast } from './utils.js';
-import { parseInputToTitle, extractRedirectTarget, fetchWikitextByTitle, getRandomArticleTitle, runResponses } from './services.js';
+import { parseInputToTitle, extractRedirectTarget, fetchWikitextByTitle, getRandomArticleTitle } from './services/wikipediaService.js';
+import { runResponses } from './services/openaiService.js';
 
 /* --- DOM handles --- */
 const UI = {
@@ -17,11 +18,9 @@ const UI = {
   wikitext: $('#wikitext'),
   copyWiki: $('#copyWiki'),
   llmStatus: $('#llmStatus'),
-  toolIndicator: $('#toolIndicator'),
+  toolConsole: $('#toolConsole'),
   llmOutput: $('#llmOutput'),
   copyLLM: $('#copyLLM'),
-  rawJson: $('#rawJson'),
-  rawWrap: $('#rawWrap'),
   articleTitle: $('#articleTitle'),
   envToggle: $('#envToggle'),
   envDev: $('#envDev'),
@@ -31,6 +30,8 @@ const spinnerTpl = $('#spinnerTpl');
 
 /* --- App state --- */
 const STATE = { title: null, url: null, wikitext: null };
+
+
 
 /* --- Environment toggle (persisted) --- */
 let ENV = (localStorage.getItem('env') || 'dev');
@@ -157,6 +158,7 @@ function applyPage({ title, url, wikitext }, viaRedirect) {
   setQueryParam('title', title, 'replace');
 }
 
+
 /* --- OpenAI run --- */
 async function runPrompt() {
   const key = UI.apiKey.value.trim();
@@ -164,9 +166,7 @@ async function runPrompt() {
   if (!STATE.wikitext) { showToast(UI.llmStatus, 'Load a Wikipedia page first', true); return; }
 
   UI.llmOutput.textContent = '';
-  UI.rawJson.textContent = '';
-  UI.rawWrap.open = false;
-  UI.toolIndicator?.classList.add('hidden');
+  if (UI.toolConsole) UI.toolConsole.innerHTML = '';
 
   setBusy(UI.runBtn, true, spinnerTpl);
 
@@ -178,16 +178,9 @@ async function runPrompt() {
         UI.llmOutput.textContent += deltaOrFull;
       },
       onStatus: (msg) => { UI.llmStatus.textContent = msg; },
-      onTool: () => {
-        if (UI.toolIndicator) {
-          UI.toolIndicator.classList.remove('hidden');
-          UI.toolIndicator.textContent = 'Tool called!';
-        }
+      onSearch: (searchString) => {
+        appendToolLinks(searchString);
       },
-      onRaw: (finalJson) => {
-        UI.rawJson.textContent = JSON.stringify(finalJson, null, 2);
-      },
-      onDone: (/* cost */) => { /* status already set */ },
       onError: (errMsg) => {
         UI.llmOutput.textContent = errMsg;
         showToast(UI.llmStatus, 'Error from OpenAI.', true);
@@ -196,4 +189,8 @@ async function runPrompt() {
   );
 
   setBusy(UI.runBtn, false, spinnerTpl);
+}
+
+const appendToolLinks = (searchString) => {
+  UI.toolConsole.innerHTML += `<div>${searchString}</div>`
 }

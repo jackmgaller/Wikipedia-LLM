@@ -2,18 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wiki Edit — GPT-5 Agent</title>
+  <title>Wiki Edit – GPT-5 Agent</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://api.openai.com" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" href="data:,">
-</head>
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.openai.com https://en.wikipedia.org https://www.google.com; img-src 'self' data:; style-src 'self' 'unsafe-inline';" />
+  </head>
 <body>
   <div class="bg"></div>
 
   <header class="glass nav">
     <div class="brand">
-      <span>Wiki Edit — GPT-5 Agent</span>
+      <span>Wiki Edit – GPT-5 Agent</span>
       <span id="devIndicator" class="dev-badge" style="display: none;">DEV</span>
     </div>
 
@@ -41,14 +43,12 @@
       <div class="actions">
         <button id="runBtn" class="btn primary">Generate Suggested Edit</button>
       </div>
-      
-      
 
       <div class="card">
         <div class="card-head">
           <strong id="articleTitle" class="article-title">Page</strong>
           <div class="grow"></div>
-          <a id="pageLink" href="#" target="_blank" rel="noopener" class="link hidden">Open on Wikipedia ↗</a>
+          <a id="pageLink" href="#" target="_blank" rel="noopener" class="link hidden">Open on Wikipedia →</a>
         </div>
         <div id="pageStatus" class="status">Load a page to see its wikitext…</div>
         <pre id="wikitext" class="codeblock"></pre>
@@ -62,14 +62,16 @@
     <section class="glass panel">
       <h2>Suggested Edit (from GPT-5)</h2>
       <div id="llmStatus" class="status">No output yet.</div>
-      <div id="toolIndicator" class="status tool hidden">Tool called!</div>
+      <div class="card">
+        <div class="card-head">
+          <strong>Tool Console</strong>
+          <div class="grow"></div>
+        </div>
+        <pre id="toolConsole" class="codeblock small" aria-live="polite"></pre>
+      </div>
       <pre id="llmOutput" class="codeblock"></pre>
       <div class="toolbar">
         <button id="copyLLM" class="btn ghost">Copy Output</button>
-        <details id="rawWrap">
-          <summary class="rawsum">Show raw JSON</summary>
-          <pre id="rawJson" class="codeblock small"></pre>
-        </details>
       </div>
     </section>
   </main>

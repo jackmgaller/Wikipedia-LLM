@@ -6,7 +6,8 @@
       "WebFetch(domain:docs.litellm.ai)",
       "WebFetch(domain:openai.com)",
       "Bash(move:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
